@@ -8,7 +8,7 @@ import (
 )
 
 func GetDBConn(appCtx context.Context, connStr string) (*pgxpool.Pool, error) {
-	ctx, cancel := context.WithTimeout(appCtx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(appCtx, 5*time.Second)
 	defer cancel()
 	conn, err := pgxpool.New(ctx, connStr)
 	if err != nil {
