@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS events(
-    user_id INTEGER,
-    event_date DATE,
+    event_id BIGSERIAL PRIMARY KEY
+    user_id INTEGER NOT NULL,
+    event_date DATE NOT NULL,
     events TEXT NOT NULL,
-    PRIMARY KEY(user_id,event_date)
 );
