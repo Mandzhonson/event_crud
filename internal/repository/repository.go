@@ -3,9 +3,15 @@ package repository
 import (
 	"calendar/internal/models"
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+var (
+	ErrTimeout = errors.New("timeout")
+	ErrCancel  = errors.New("context cancelled")
 )
 
 type postgres struct {
@@ -24,6 +30,12 @@ func (p *postgres) CreateEvent(ctx context.Context, event models.Events) error {
 	VALUES($1,$2,$3)
 	`
 	_, err := p.pool.Exec(ctx, sql, event.UserID, event.Date, event.Event)
+	if errors.Is(err, context.Canceled) {
+		return ErrCancel
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ErrTimeout
+	}
 	return err
 }
 func (p *postgres) UpdateEvent(ctx context.Context, updEvent models.Events) error {
@@ -33,6 +45,12 @@ func (p *postgres) UpdateEvent(ctx context.Context, updEvent models.Events) erro
 	WHERE event_id=$3
 	`
 	_, err := p.pool.Exec(ctx, sql, updEvent.Date, updEvent.Event, updEvent.EventID)
+	if errors.Is(err, context.Canceled) {
+		return ErrCancel
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ErrTimeout
+	}
 	return err
 }
 func (p *postgres) DeleteEvent(ctx context.Context, delEventID int) error {
@@ -41,6 +59,12 @@ func (p *postgres) DeleteEvent(ctx context.Context, delEventID int) error {
 	WHERE event_id=$1
 	`
 	_, err := p.pool.Exec(ctx, sql, delEventID)
+	if errors.Is(err, context.Canceled) {
+		return ErrCancel
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ErrTimeout
+	}
 	return err
 }
 func (p *postgres) EventsForDay(ctx context.Context, userID int, date time.Time) ([]models.Events, error) {
@@ -51,6 +75,12 @@ func (p *postgres) EventsForDay(ctx context.Context, userID int, date time.Time)
 	`
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, ErrCancel
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, ErrTimeout
+		}
 		return nil, err
 	}
 	defer rows.Close()
@@ -75,6 +105,12 @@ func (p *postgres) EventsForWeek(ctx context.Context, userID int, date time.Time
 	`
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, ErrCancel
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, ErrTimeout
+		}
 		return nil, err
 	}
 	defer rows.Close()
@@ -102,6 +138,12 @@ func (p *postgres) EventsForMonth(ctx context.Context, userID int, date time.Tim
 	`
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, ErrCancel
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, ErrTimeout
+		}
 		return nil, err
 	}
 	defer rows.Close()
