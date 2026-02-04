@@ -3,6 +3,7 @@ package dto
 import "time"
 
 type RequestDTO struct {
-	UserID int
-	Date   time.Time
-} 
+	Period string    `json:"period"`
+	UserID int       `json:"user_id"`
+	Date   time.Time `json:"event_date"`
+}
