@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load config: %s\n", err)
 	}
-	db, err := storage.GetDBConn(ctx, cfg.DatabaseConfig.ConnString)
+	db, err := storage.GetDBConn(ctx, cfg.GetDBString())
 	if err != nil {
 		log.Fatalf("failed to connect db: %s\n", err)
 	}
