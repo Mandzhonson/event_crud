@@ -8,16 +8,16 @@ import (
 )
 
 type Config struct {
-	HTTPConfing struct {
+	HTTPConfig struct {
 		Host string `env:"SRV_HOST" env-default:"localhost"`
 		Port string `env:"SRV_PORT" env-default:"8080"`
 	}
 	DatabaseConfig struct {
-		Name string `env:"POSTGRES_DB" required: "true"`
+		Name string `env:"POSTGRES_DB" default:"crud_app"`
 		User string `env:"POSTGRES_USER" default:"postgres"`
 		Pass string `env:"POSTGRES_PASSWORD" default:"postgres"`
 		Host string `env:"POSTGRES_HOST" default:"postgres"`
-		Port string `env:"POSTGRES_PORT" default:"postgres"`
+		Port string `env:"POSTGRES_PORT" default:"5432"`
 	}
 }
 
