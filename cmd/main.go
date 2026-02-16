@@ -3,6 +3,7 @@ package main
 import (
 	"calendar/internal/config"
 	"calendar/internal/handlers"
+	"calendar/internal/logger"
 	"calendar/internal/repository"
 	"calendar/internal/router"
 	"calendar/internal/service"
@@ -10,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +20,7 @@ import (
 )
 
 func main() {
+	logger.NewLogger("info")
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	cfg, err := config.LoadConfig()
@@ -29,7 +32,6 @@ func main() {
 		log.Fatalf("failed to connect db: %s\n", err)
 	}
 	defer db.Close()
-
 	repo := repository.NewPostgres(db)
 	service := service.NewEventService(repo)
 	handlers := handlers.NewEventHandler(service)
@@ -43,13 +45,13 @@ func main() {
 			log.Fatalf("failed to start server: %s\n", err)
 		}
 	}()
-	fmt.Println("server started:", fmt.Sprintf("%s:%s", cfg.HTTPConfig.Host, cfg.HTTPConfig.Port))
+	slog.Info("server started: ", slog.String("Host:", cfg.HTTPConfig.Host), slog.String("Port:", cfg.HTTPConfig.Port))
 	<-ctx.Done()
 	cancel()
 	shtCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shtCtx); err != nil {
-		log.Fatalf("failed to shutdown server: %s\n", err)
+		slog.Error("failed to shutdown server", slog.String("error", err.Error()))
 	}
-	fmt.Println("server is shutdown successfully!")
+	slog.Info("server is shutdown succesfully")
 }
