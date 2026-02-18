@@ -1,17 +1,14 @@
 package repository
 
 import (
+	"calendar/internal/apperr"
 	"calendar/internal/models"
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-)
-
-var (
-	ErrTimeout = errors.New("timeout")
-	ErrCancel  = errors.New("context cancelled")
 )
 
 type postgres struct {
@@ -30,13 +27,10 @@ func (p *postgres) CreateEvent(ctx context.Context, event models.Events) error {
 	VALUES($1,$2,$3)
 	`
 	_, err := p.pool.Exec(ctx, sql, event.UserID, event.Date, event.Event)
-	if errors.Is(err, context.Canceled) {
-		return ErrCancel
+	if err != nil {
+		return fmt.Errorf("insert event: %w", err)
 	}
-	if errors.Is(err, context.DeadlineExceeded) {
-		return ErrTimeout
-	}
-	return err
+	return nil
 }
 func (p *postgres) UpdateEvent(ctx context.Context, updEvent models.Events) error {
 	sql := `
@@ -45,13 +39,10 @@ func (p *postgres) UpdateEvent(ctx context.Context, updEvent models.Events) erro
 	WHERE event_id=$3
 	`
 	_, err := p.pool.Exec(ctx, sql, updEvent.Date, updEvent.Event, updEvent.EventID)
-	if errors.Is(err, context.Canceled) {
-		return ErrCancel
+	if err != nil {
+		return fmt.Errorf("update event: %w", err)
 	}
-	if errors.Is(err, context.DeadlineExceeded) {
-		return ErrTimeout
-	}
-	return err
+	return nil
 }
 func (p *postgres) DeleteEvent(ctx context.Context, delEventID int) error {
 	sql := `
@@ -59,14 +50,12 @@ func (p *postgres) DeleteEvent(ctx context.Context, delEventID int) error {
 	WHERE event_id=$1
 	`
 	_, err := p.pool.Exec(ctx, sql, delEventID)
-	if errors.Is(err, context.Canceled) {
-		return ErrCancel
-	}
-	if errors.Is(err, context.DeadlineExceeded) {
-		return ErrTimeout
+	if err != nil {
+		return fmt.Errorf("delete event: %w", err)
 	}
 	return err
 }
+
 func (p *postgres) EventsForDay(ctx context.Context, userID int, date time.Time) ([]models.Events, error) {
 	sql := `
 	SELECT event_id, user_id, event_date, event
@@ -76,10 +65,10 @@ func (p *postgres) EventsForDay(ctx context.Context, userID int, date time.Time)
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			return nil, ErrCancel
+			return nil, apperr.ErrCancel
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, ErrTimeout
+			return nil, apperr.ErrTimeout
 		}
 		return nil, err
 	}
@@ -106,10 +95,10 @@ func (p *postgres) EventsForWeek(ctx context.Context, userID int, date time.Time
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			return nil, ErrCancel
+			return nil, apperr.ErrCancel
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, ErrTimeout
+			return nil, apperr.ErrTimeout
 		}
 		return nil, err
 	}
@@ -132,17 +121,17 @@ func (p *postgres) EventsForMonth(ctx context.Context, userID int, date time.Tim
 	sql := `
 	SELECT event_id, user_id, event_date, event
 	FROM events
-	WHERE user_id=$1 
+	WHERE user_id=$1
 		AND event_date >= date_trunc('month', $2)
 		AND event_date < date_trunc('month', $2) + interval '1 month'
 	`
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			return nil, ErrCancel
+			return nil, apperr.ErrCancel
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, ErrTimeout
+			return nil, apperr.ErrTimeout
 		}
 		return nil, err
 	}
@@ -157,4 +146,14 @@ func (p *postgres) EventsForMonth(ctx context.Context, userID int, date time.Tim
 		res = append(res, model)
 	}
 	return res, nil
+}
+
+func (p *postgres) FindEvents(ctx context.Context, eventID int) error {
+	sql := `SELECT event_id FROM events WHERE event_id=$1`
+	row := p.pool.QueryRow(ctx, sql, eventID)
+	var id int
+	if err := row.Scan(&id); err != nil {
+		return fmt.Errorf("find events: %w", err)
+	}
+	return nil
 }

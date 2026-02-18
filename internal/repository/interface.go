@@ -13,4 +13,5 @@ type Repo interface {
 	EventsForDay(ctx context.Context, userID int, date time.Time) ([]models.Events, error)
 	EventsForWeek(ctx context.Context, userID int, date time.Time) ([]models.Events, error)
 	EventsForMonth(ctx context.Context, userID int, date time.Time) ([]models.Events, error)
+	FindEvents(ctx context.Context, eventID int) error
 }

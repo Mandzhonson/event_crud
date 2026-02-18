@@ -1,10 +1,15 @@
 package service
 
 import (
+	"calendar/internal/apperr"
+	"calendar/internal/dto"
 	"calendar/internal/models"
 	"calendar/internal/repository"
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -18,22 +23,64 @@ func NewEventService(r repository.Repo) *eventService {
 	}
 }
 
-func (evSer *eventService) CreateEvent(ctx context.Context, event models.Events) error {
+func (evSer *eventService) CreateEvent(ctx context.Context, eventDTO dto.RequestDTO) error {
+	if eventDTO.Date == "" || eventDTO.Event == "" || eventDTO.UserID <= 0 {
+		return apperr.InvalidReqParams
+	}
+	date, err := time.Parse("2006-01-02", eventDTO.Date)
+	if err != nil {
+		return apperr.InvalidReqParams
+	}
+	event := models.Events{UserID: eventDTO.UserID, Event: eventDTO.Event, Date: date}
+
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := evSer.Repo.CreateEvent(dbCtx, event); err != nil {
-		return fmt.Errorf("error creating event: %w", err)
+		slog.Error("failed to insert event", slog.Any("error", err))
+		if errors.Is(err, context.Canceled) {
+			return apperr.ErrCancel
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return apperr.ErrTimeout
+		}
+		slog.Error("failed to update event", slog.Any("error", err))
+		return apperr.InternalServErr
 	}
+	slog.Debug("create event is successfull", slog.Int("event_id", event.EventID))
 	return nil
 }
-func (evSer *eventService) UpdateEvent(ctx context.Context, updEvent models.Events) error {
+
+func (evSer *eventService) UpdateEvent(ctx context.Context, eventDTO dto.RequestDTO) error {
+	if eventDTO.Date == "" && eventDTO.Event == "" {
+		return apperr.InternalServErr
+	}
+	err := evSer.Repo.FindEvents(ctx, eventDTO.EventID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return apperr.EventNotFound
+		}
+		return apperr.InternalServErr
+	}
+	date, err := time.Parse("2006-01-02", eventDTO.Date)
+	if err != nil {
+		return apperr.InvalidReqParams
+	}
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+	updEvent := models.Events{EventID: eventDTO.EventID, Event: eventDTO.Event, Date: date}
 	if err := evSer.Repo.UpdateEvent(dbCtx, updEvent); err != nil {
-		return fmt.Errorf("error updating event: %w", err)
+		if errors.Is(err, context.Canceled) {
+			return apperr.ErrCancel
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return apperr.ErrTimeout
+		}
+		slog.Error("failed to update event", slog.Any("error", err))
+		return apperr.InternalServErr
 	}
 	return nil
 }
+
 func (evSer *eventService) DeleteEvent(ctx context.Context, delEventID int) error {
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
