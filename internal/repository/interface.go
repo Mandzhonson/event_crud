@@ -7,7 +7,7 @@ import (
 )
 
 type Repo interface {
-	CreateEvent(ctx context.Context, event models.Events) error
+	CreateEvent(ctx context.Context, event models.Events) (int, error)
 	UpdateEvent(ctx context.Context, updEvent models.Events) error
 	DeleteEvent(ctx context.Context, delEventID int) error
 	EventsForDay(ctx context.Context, userID int, date time.Time) ([]models.Events, error)

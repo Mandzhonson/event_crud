@@ -21,16 +21,18 @@ func NewPostgres(pool *pgxpool.Pool) *postgres {
 	}
 }
 
-func (p *postgres) CreateEvent(ctx context.Context, event models.Events) error {
+func (p *postgres) CreateEvent(ctx context.Context, event models.Events) (int, error) {
 	sql := `
 	INSERT INTO events(user_id, event_date, event) 
 	VALUES($1,$2,$3)
+	RETURNING event_id
 	`
-	_, err := p.pool.Exec(ctx, sql, event.UserID, event.Date, event.Event)
+	var id int
+	err := p.pool.QueryRow(ctx, sql, event.UserID, event.Date, event.Event).Scan(&id)
 	if err != nil {
-		return fmt.Errorf("insert event: %w", err)
+		return 0, fmt.Errorf("insert event: %w", err)
 	}
-	return nil
+	return id, nil
 }
 func (p *postgres) UpdateEvent(ctx context.Context, updEvent models.Events) error {
 	sql := `
@@ -49,11 +51,14 @@ func (p *postgres) DeleteEvent(ctx context.Context, delEventID int) error {
 	DELETE FROM events
 	WHERE event_id=$1
 	`
-	_, err := p.pool.Exec(ctx, sql, delEventID)
+	resDel, err := p.pool.Exec(ctx, sql, delEventID)
 	if err != nil {
 		return fmt.Errorf("delete event: %w", err)
 	}
-	return err
+	if resDel.RowsAffected() != 1 {
+		return fmt.Errorf("delete event: %w", apperr.EventNotFound)
+	}
+	return nil
 }
 
 func (p *postgres) EventsForDay(ctx context.Context, userID int, date time.Time) ([]models.Events, error) {
@@ -94,13 +99,7 @@ func (p *postgres) EventsForWeek(ctx context.Context, userID int, date time.Time
 	`
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return nil, apperr.ErrCancel
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, apperr.ErrTimeout
-		}
-		return nil, err
+		return nil, fmt.Errorf("events for week failed: %w", err)
 	}
 	defer rows.Close()
 	res := make([]models.Events, 0)

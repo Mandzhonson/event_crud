@@ -8,7 +8,7 @@ import (
 )
 
 type EventService interface {
-	CreateEvent(ctx context.Context, event dto.RequestDTO) error
+	CreateEvent(ctx context.Context, event dto.RequestDTO) (int, error)
 	UpdateEvent(ctx context.Context, eventDTO dto.RequestDTO) error
 	DeleteEvent(ctx context.Context, delEventID int) error
 	EventsForDay(ctx context.Context, userID int, date time.Time) ([]models.Events, error)

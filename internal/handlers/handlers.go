@@ -29,16 +29,18 @@ func (Hand *EventHandler) CreateEvent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": apperr.InvalidReqParams.Error()})
 		return
 	}
-	if err := Hand.Service.CreateEvent(c.Request.Context(), event); err != nil {
+	eventId, err := Hand.Service.CreateEvent(c.Request.Context(), event)
+	if err != nil {
 		if errors.Is(err, apperr.InvalidReqParams) {
 			slog.Debug("invalid request body", slog.Any("error", err))
 			c.JSON(http.StatusBadRequest, gin.H{"error": apperr.InvalidReqParams.Error()})
 			return
 		}
 		slog.Error("failed to create event", slog.Any("error", err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.InternalServErr.Error()})
 		return
 	}
+	event.EventID = eventId
 	slog.Debug("CreateEvent is work sucessfully", slog.Any("value", event))
 	c.JSON(http.StatusCreated, gin.H{"result": event})
 }
@@ -70,7 +72,7 @@ func (Hand *EventHandler) UpdateEvent(c *gin.Context) {
 			return
 		}
 		slog.Error("failed to update event", slog.Any("error", err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.InternalServErr.Error()})
 		return
 	}
 	slog.Debug("UpdateEvent is work sucessfully", slog.Any("value", event))
@@ -81,17 +83,21 @@ func (Hand *EventHandler) DeleteEvent(c *gin.Context) {
 	id := c.Param("id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
-		slog.Error("failed to cast string to int", slog.Any("error", err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Debug("delete event is failed", slog.Any("error", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": apperr.InternalServErr.Error()})
 		return
 	}
 	if err := Hand.Service.DeleteEvent(c.Request.Context(), eventID); err != nil {
-		slog.Error("failed to delete user", slog.Any("error", err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, apperr.EventNotFound) {
+			slog.Debug("failed to delete event", slog.Int("event_id", eventID))
+			c.JSON(http.StatusNotFound, gin.H{"error": apperr.EventNotFound.Error()})
+			return
+		}
+		slog.Error("failed to delete event", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.InternalServErr.Error()})
 		return
 	}
 	slog.Debug("DeleteEvent is work sucessfully", slog.Int("value", eventID))
-
 	c.JSON(http.StatusNoContent, nil)
 
 }

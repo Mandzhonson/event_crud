@@ -23,31 +23,32 @@ func NewEventService(r repository.Repo) *eventService {
 	}
 }
 
-func (evSer *eventService) CreateEvent(ctx context.Context, eventDTO dto.RequestDTO) error {
+func (evSer *eventService) CreateEvent(ctx context.Context, eventDTO dto.RequestDTO) (int, error) {
 	if eventDTO.Date == "" || eventDTO.Event == "" || eventDTO.UserID <= 0 {
-		return apperr.InvalidReqParams
+		return 0, apperr.InvalidReqParams
 	}
 	date, err := time.Parse("2006-01-02", eventDTO.Date)
 	if err != nil {
-		return apperr.InvalidReqParams
+		return 0, apperr.InvalidReqParams
 	}
 	event := models.Events{UserID: eventDTO.UserID, Event: eventDTO.Event, Date: date}
 
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := evSer.Repo.CreateEvent(dbCtx, event); err != nil {
+	id, err := evSer.Repo.CreateEvent(dbCtx, event)
+	if err != nil {
 		slog.Error("failed to insert event", slog.Any("error", err))
 		if errors.Is(err, context.Canceled) {
-			return apperr.ErrCancel
+			return 0, apperr.ErrCancel
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			return apperr.ErrTimeout
+			return 0, apperr.ErrTimeout
 		}
 		slog.Error("failed to update event", slog.Any("error", err))
-		return apperr.InternalServErr
+		return 0, apperr.InternalServErr
 	}
 	slog.Debug("create event is successfull", slog.Int("event_id", event.EventID))
-	return nil
+	return id, nil
 }
 
 func (evSer *eventService) UpdateEvent(ctx context.Context, eventDTO dto.RequestDTO) error {
