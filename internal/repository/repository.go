@@ -4,7 +4,6 @@ import (
 	"calendar/internal/apperr"
 	"calendar/internal/models"
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -69,13 +68,7 @@ func (p *postgres) EventsForDay(ctx context.Context, userID int, date time.Time)
 	`
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return nil, apperr.ErrCancel
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, apperr.ErrTimeout
-		}
-		return nil, err
+		return nil, fmt.Errorf("get events for day: %w", err)
 	}
 	defer rows.Close()
 	res := make([]models.Events, 0)
@@ -83,7 +76,7 @@ func (p *postgres) EventsForDay(ctx context.Context, userID int, date time.Time)
 		var model models.Events
 		err := rows.Scan(&model.EventID, &model.UserID, &model.Date, &model.Event)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get events for day: %w", err)
 		}
 		res = append(res, model)
 	}
@@ -94,8 +87,8 @@ func (p *postgres) EventsForWeek(ctx context.Context, userID int, date time.Time
 	SELECT event_id, user_id, event_date, event
 	FROM events
 	WHERE user_id = $1
-  		AND event_date >= date_trunc('week', $2)
-  		AND event_date <  date_trunc('week', $2) + interval '1 week'
+  		AND event_date >= $2::date
+  		AND event_date <  $2::date + interval '7 days'
 	`
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
@@ -107,12 +100,12 @@ func (p *postgres) EventsForWeek(ctx context.Context, userID int, date time.Time
 		var model models.Events
 		err := rows.Scan(&model.EventID, &model.UserID, &model.Date, &model.Event)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get events for week: %w", err)
 		}
 		res = append(res, model)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get events for week: %w", err)
 	}
 	return res, nil
 }
@@ -121,18 +114,12 @@ func (p *postgres) EventsForMonth(ctx context.Context, userID int, date time.Tim
 	SELECT event_id, user_id, event_date, event
 	FROM events
 	WHERE user_id=$1
-		AND event_date >= date_trunc('month', $2)
-		AND event_date < date_trunc('month', $2) + interval '1 month'
+		AND event_date >= date_trunc('month', $2::timestamp)::date
+		AND event_date < date_trunc('month', $2::timestamp)::date + interval '1 month'
 	`
 	rows, err := p.pool.Query(ctx, sql, userID, date)
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return nil, apperr.ErrCancel
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, apperr.ErrTimeout
-		}
-		return nil, err
+		return nil, fmt.Errorf("get events for month: %w", err)
 	}
 	defer rows.Close()
 	res := make([]models.Events, 0)
@@ -140,7 +127,7 @@ func (p *postgres) EventsForMonth(ctx context.Context, userID int, date time.Tim
 		var model models.Events
 		err := rows.Scan(&model.EventID, &model.UserID, &model.Date, &model.Event)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get events for month: %w", err)
 		}
 		res = append(res, model)
 	}

@@ -19,7 +19,7 @@ import (
 )
 
 func Run() error {
-	logger.NewLogger("info")
+	logger.NewLogger("debug")
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	cfg, err := config.LoadConfig()

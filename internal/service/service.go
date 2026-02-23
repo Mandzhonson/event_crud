@@ -6,11 +6,12 @@ import (
 	"calendar/internal/models"
 	"calendar/internal/repository"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type eventService struct {
@@ -57,7 +58,7 @@ func (evSer *eventService) UpdateEvent(ctx context.Context, eventDTO dto.Request
 	}
 	err := evSer.Repo.FindEvents(ctx, eventDTO.EventID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return apperr.EventNotFound
 		}
 		return apperr.InternalServErr
@@ -90,31 +91,73 @@ func (evSer *eventService) DeleteEvent(ctx context.Context, delEventID int) erro
 	}
 	return nil
 }
-func (evSer *eventService) EventsForDay(ctx context.Context, userID int, date time.Time) ([]models.Events, error) {
+func (evSer *eventService) EventsForDay(ctx context.Context, userID int, dates string) ([]models.Events, error) {
+	date, err := time.Parse("2006-01-02", dates)
+	if err != nil {
+		return nil, apperr.InvalidReqParams
+	}
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	events, err := evSer.Repo.EventsForDay(dbCtx, userID, date)
 	if err != nil {
-		return nil, fmt.Errorf("error EvenstForDay: %w", err)
+		if errors.Is(err, context.Canceled) {
+			return nil, apperr.ErrCancel
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, apperr.ErrTimeout
+		}
+		if len(events) == 0 {
+			return nil, apperr.EventNotFound
+		}
+		slog.Error("failed to get events for day", slog.Any("error", err))
+		return nil, apperr.InternalServErr
 	}
 	return events, nil
 }
-func (evSer *eventService) EventsForWeek(ctx context.Context, userID int, date time.Time) ([]models.Events, error) {
+func (evSer *eventService) EventsForWeek(ctx context.Context, userID int, dates string) ([]models.Events, error) {
+	date, err := time.Parse("2006-01-02", dates)
+	if err != nil {
+		return nil, apperr.InvalidReqParams
+	}
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	events, err := evSer.Repo.EventsForWeek(dbCtx, userID, date)
 	if err != nil {
-		return nil, fmt.Errorf("error EvenstForWeek: %w", err)
+		if errors.Is(err, context.Canceled) {
+			return nil, apperr.ErrCancel
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, apperr.ErrTimeout
+		}
+		if len(events) == 0 {
+			return nil, apperr.EventNotFound
+		}
+		slog.Error("failed to get events for week", slog.Any("error", err))
+		return nil, apperr.InternalServErr
 	}
 	return events, nil
 
 }
-func (evSer *eventService) EventsForMonth(ctx context.Context, userID int, date time.Time) ([]models.Events, error) {
+func (evSer *eventService) EventsForMonth(ctx context.Context, userID int, dates string) ([]models.Events, error) {
+	date, err := time.Parse("2006-01-02", dates)
+	if err != nil {
+		return nil, apperr.InvalidReqParams
+	}
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	events, err := evSer.Repo.EventsForMonth(dbCtx, userID, date)
 	if err != nil {
-		return nil, fmt.Errorf("error EvenstForMonth: %w", err)
+		if errors.Is(err, context.Canceled) {
+			return nil, apperr.ErrCancel
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, apperr.ErrTimeout
+		}
+		if len(events) == 0 {
+			return nil, apperr.EventNotFound
+		}
+		slog.Error("failed to get events for month", slog.Any("error", err))
+		return nil, apperr.InternalServErr
 	}
 	return events, nil
 }
