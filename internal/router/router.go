@@ -12,9 +12,12 @@ func GetRouter(handlers *handlers.EventHandler) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(middleware.LoggingMiddleware)
-	router.POST("/events", handlers.CreateEvent)
-	router.PUT("/events/:id", handlers.UpdateEvent)
-	router.DELETE("/events/:id", handlers.DeleteEvent)
-	router.GET("/events", handlers.EventsGet)
+	api := router.Group("api/v1")
+	{
+		api.POST("/events", handlers.CreateEvent)
+		api.PUT("/events/:id", handlers.UpdateEvent)
+		api.DELETE("/events/:id", handlers.DeleteEvent)
+		api.GET("/events", handlers.EventsGet)
+	}
 	return router
 }
