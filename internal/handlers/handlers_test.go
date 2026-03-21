@@ -6,6 +6,7 @@ import (
 	"calendar/internal/dto"
 	"calendar/internal/handlers"
 	mock_service "calendar/internal/mocks"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -115,6 +116,141 @@ func TestHandlers_CreateEvent(t *testing.T) {
 
 			assert.Equal(t, w.Code, testCase.expectedStatusCode)
 			assert.Equal(t, w.Body.String(), testCase.expectedBodyRequest)
+		})
+	}
+}
+
+func TestHandlers_UpdateEvent(t *testing.T) {
+	type mockBehaivour func(s *mock_service.MockEventService, event dto.RequestDTO)
+
+	testTable := []struct {
+		name                string
+		inputID             string
+		inputBody           string
+		inputEvent          dto.RequestDTO
+		mockBehaivour       mockBehaivour
+		expectedStatusCode  int
+		expectedBodyRequest string
+	}{
+		{
+			name:    "OK",
+			inputID: "1",
+			inputBody: `{
+				"user_id": 2,
+				"event": "meeting",
+				"event_date": "2026-03-10"
+			}`,
+			inputEvent: dto.RequestDTO{
+				EventID: 1,
+				UserID:  2,
+				Event:   "meeting",
+				Date:    "2026-03-10",
+			},
+			mockBehaivour: func(s *mock_service.MockEventService, event dto.RequestDTO) {
+				s.EXPECT().UpdateEvent(gomock.Any(), event).Return(nil)
+			},
+			expectedStatusCode:  http.StatusOK,
+			expectedBodyRequest: `{"result":{"event_id":1,"user_id":2,"event_date":"2026-03-10","event":"meeting"}}`,
+		},
+		{
+			name:                "invalid id",
+			inputID:             "abc",
+			inputBody:           `{}`,
+			mockBehaivour:       func(s *mock_service.MockEventService, event dto.RequestDTO) {},
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedBodyRequest: `{"error":"bad request"}`,
+		},
+		{
+			name:    "invalid json",
+			inputID: "1",
+			inputBody: `{
+				"user_id": 2,
+				"event": "meeting",
+			}`,
+			mockBehaivour:       func(s *mock_service.MockEventService, event dto.RequestDTO) {},
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedBodyRequest: `{"error":"invalid request parameters"}`,
+		},
+		{
+			name:    "service invalid params",
+			inputID: "1",
+			inputBody: `{
+				"user_id": 0,
+				"event": "",
+				"event_date": ""
+			}`,
+			inputEvent: dto.RequestDTO{
+				EventID: 1,
+			},
+			mockBehaivour: func(s *mock_service.MockEventService, event dto.RequestDTO) {
+				s.EXPECT().UpdateEvent(gomock.Any(), event).Return(apperr.InvalidReqParams)
+			},
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedBodyRequest: `{"error":"invalid request parameters"}`,
+		},
+		{
+			name:    "event not found",
+			inputID: "1",
+			inputBody: `{
+				"user_id": 2,
+				"event": "meeting",
+				"event_date": "2026-03-10"
+			}`,
+			inputEvent: dto.RequestDTO{
+				EventID: 1,
+				UserID:  2,
+				Event:   "meeting",
+				Date:    "2026-03-10",
+			},
+			mockBehaivour: func(s *mock_service.MockEventService, event dto.RequestDTO) {
+				s.EXPECT().UpdateEvent(gomock.Any(), event).Return(apperr.EventNotFound)
+			},
+			expectedStatusCode:  http.StatusNotFound,
+			expectedBodyRequest: `{"error":"event not found"}`,
+		},
+		{
+			name:    "service internal error",
+			inputID: "1",
+			inputBody: `{
+				"user_id": 2,
+				"event": "meeting",
+				"event_date": "2026-03-10"
+			}`,
+			inputEvent: dto.RequestDTO{
+				EventID: 1,
+				UserID:  2,
+				Event:   "meeting",
+				Date:    "2026-03-10",
+			},
+			mockBehaivour: func(s *mock_service.MockEventService, event dto.RequestDTO) {
+				s.EXPECT().UpdateEvent(gomock.Any(), event).Return(apperr.InternalServErr)
+			},
+			expectedStatusCode:  http.StatusInternalServerError,
+			expectedBodyRequest: `{"error":"internal server error"}`,
+		},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			serv := mock_service.NewMockEventService(ctrl)
+			testCase.mockBehaivour(serv, testCase.inputEvent)
+
+			handlers := &handlers.EventHandler{
+				Service: serv,
+			}
+
+			r := gin.New()
+			gin.SetMode(gin.TestMode)
+
+			r.PUT("/events/:id", handlers.UpdateEvent)
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/events/%s", testCase.inputID), bytes.NewBufferString(testCase.inputBody))
+			r.ServeHTTP(w, req)
+			assert.Equal(t, testCase.expectedBodyRequest, w.Body.String())
+			assert.Equal(t, testCase.expectedStatusCode, w.Code)
 		})
 	}
 }
