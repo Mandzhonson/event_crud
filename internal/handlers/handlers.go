@@ -108,8 +108,8 @@ func (Hand *EventHandler) EventsGet(c *gin.Context) {
 	var err error
 	var eventsArr []models.Events
 	if err := c.ShouldBindQuery(&req); err != nil {
-		slog.Error("failed to parse json", slog.Any("error", err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Debug("failed to parse json", slog.Any("error", err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": apperr.BadRequest.Error()})
 		return
 	}
 	slog.Debug("TEST", slog.Any("req", req))
