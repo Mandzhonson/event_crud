@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -251,6 +252,81 @@ func TestHandlers_UpdateEvent(t *testing.T) {
 			r.ServeHTTP(w, req)
 			assert.Equal(t, testCase.expectedBodyRequest, w.Body.String())
 			assert.Equal(t, testCase.expectedStatusCode, w.Code)
+		})
+	}
+}
+
+func TestHandlers_DeleteEvent(t *testing.T) {
+	type mockBehaivour func(s *mock_service.MockEventService, id int)
+
+	testTable := []struct {
+		name                string
+		inputID             string
+		mockBehaivour       mockBehaivour
+		expectedStatusCode  int
+		expectedBodyRequest string
+	}{
+		{
+			name:    "OK",
+			inputID: "1",
+			mockBehaivour: func(s *mock_service.MockEventService, eventID int) {
+				s.EXPECT().DeleteEvent(gomock.Any(), eventID).Return(nil)
+			},
+			expectedStatusCode:  http.StatusNoContent,
+			expectedBodyRequest: "",
+		},
+		{
+			name:                "invalid id",
+			inputID:             "abc",
+			mockBehaivour:       func(s *mock_service.MockEventService, eventID int) {},
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedBodyRequest: `{"error":"bad request"}`,
+		},
+		{
+			name:    "event not found",
+			inputID: "1",
+			mockBehaivour: func(s *mock_service.MockEventService, eventID int) {
+				s.EXPECT().DeleteEvent(gomock.Any(), eventID).Return(apperr.EventNotFound)
+			},
+			expectedStatusCode:  http.StatusNotFound,
+			expectedBodyRequest: `{"error":"event not found"}`,
+		},
+		{
+			name:    "service internal error",
+			inputID: "1",
+			mockBehaivour: func(s *mock_service.MockEventService, eventID int) {
+				s.EXPECT().DeleteEvent(gomock.Any(), eventID).Return(apperr.InternalServErr)
+			},
+			expectedStatusCode:  http.StatusInternalServerError,
+			expectedBodyRequest: `{"error":"internal server error"}`,
+		},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			srv := mock_service.NewMockEventService(ctrl)
+			id, _ := strconv.Atoi(testCase.inputID)
+
+			testCase.mockBehaivour(srv, id)
+			handlers := &handlers.EventHandler{
+				Service: srv,
+			}
+
+			r := gin.New()
+			gin.SetMode(gin.TestMode)
+
+			r.DELETE("/events/:id", handlers.DeleteEvent)
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/events/%s", testCase.inputID), nil)
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, w.Code, testCase.expectedStatusCode)
+			assert.Equal(t, w.Body.String(), testCase.expectedBodyRequest)
 		})
 	}
 }

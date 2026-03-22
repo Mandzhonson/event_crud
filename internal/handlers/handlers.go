@@ -85,7 +85,7 @@ func (Hand *EventHandler) DeleteEvent(c *gin.Context) {
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
 		slog.Debug("delete event is failed", slog.Any("error", err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": apperr.InternalServErr.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": apperr.BadRequest.Error()})
 		return
 	}
 	if err := Hand.Service.DeleteEvent(c.Request.Context(), eventID); err != nil {
