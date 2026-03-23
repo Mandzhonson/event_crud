@@ -1,0 +1,18 @@
+package repository
+
+import (
+	"calendar/internal/models"
+	"context"
+	"time"
+)
+
+//go:generate mockgen -source=interface.go -destination=mocks/mock_repository.go
+type Repo interface {
+	CreateEvent(ctx context.Context, event models.Events) (int, error)
+	UpdateEvent(ctx context.Context, updEvent models.Events) error
+	DeleteEvent(ctx context.Context, delEventID int) error
+	EventsForDay(ctx context.Context, userID int, date time.Time) ([]models.Events, error)
+	EventsForWeek(ctx context.Context, userID int, date time.Time) ([]models.Events, error)
+	EventsForMonth(ctx context.Context, userID int, date time.Time) ([]models.Events, error)
+	FindEvents(ctx context.Context, eventID int) error
+}
