@@ -106,7 +106,7 @@ func (evSer *eventService) EventsForDay(ctx context.Context, userID int, dates s
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, apperr.ErrTimeout
 		}
-		if len(events) == 0 {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperr.EventNotFound
 		}
 		slog.Error("failed to get events for day", slog.Any("error", err))
@@ -129,7 +129,7 @@ func (evSer *eventService) EventsForWeek(ctx context.Context, userID int, dates 
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, apperr.ErrTimeout
 		}
-		if len(events) == 0 {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperr.EventNotFound
 		}
 		slog.Error("failed to get events for week", slog.Any("error", err))
@@ -153,7 +153,7 @@ func (evSer *eventService) EventsForMonth(ctx context.Context, userID int, dates
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, apperr.ErrTimeout
 		}
-		if len(events) == 0 {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperr.EventNotFound
 		}
 		slog.Error("failed to get events for month", slog.Any("error", err))

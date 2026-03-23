@@ -6,8 +6,7 @@ import (
 	"context"
 )
 
-
-//go:generate mockgen -source=interface.go -destination=../mocks/mock_service.go
+//go:generate mockgen -source=interface.go -destination=mocks/mock_service.go
 type EventService interface {
 	CreateEvent(ctx context.Context, event dto.RequestDTO) (int, error)
 	UpdateEvent(ctx context.Context, eventDTO dto.RequestDTO) error

@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+//go:generate mockgen -source=interface.go -destination=mocks/mock_repository.go
 type Repo interface {
 	CreateEvent(ctx context.Context, event models.Events) (int, error)
 	UpdateEvent(ctx context.Context, updEvent models.Events) error
